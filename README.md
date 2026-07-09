@@ -46,9 +46,9 @@ La app estará disponible en `http://localhost:5173`.
 4. Despliega como **Aplicación web** (acceso: cualquier persona) y copia la URL.
 5. Pega esa URL en la constante `SCRIPT_URL` dentro de `src/App.jsx`.
 
-## Notas pendientes
+## Estado del proyecto
 
-> ⚠️ El archivo `src/App.jsx` contiene la lógica completa (estado, puntuación, ranking), pero al final indica que faltan por pegar los componentes visuales de la UI: `Shell`, `Header`, `Tabs`, `Pick`, `Apostar`, `MatchCard`, `TeamCol`, `Ranking`, `Criterio`, `Admin`, `AddMatch`, `ResultForm` y `Styles`. Agrégalos al final del archivo para que la app compile y funcione.
+✅ La app está **completa y funcional**: incluye todos los componentes visuales (`Shell`, `Header`, `Tabs`, `Pick`, `Apostar`, `MatchCard`, `TeamCol`, `Ranking`, `Criterio`, `Admin`, `AddMatch`, `ResultForm` y `Styles`) con un tema oscuro responsive optimizado para móvil. Sin `SCRIPT_URL` configurada, la app funciona en modo local (los datos no se comparten entre dispositivos); al configurar la URL, todo se sincroniza a través de Google Sheets.
 
 ## Build de producción
 
