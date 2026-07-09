@@ -79,9 +79,11 @@ const metLabel = (m) => (m === "pen" ? "pen." : m === "et" ? "TE" : "");
 const metLong = (m) => (m === "pen" ? "penales" : m === "et" ? "tiempo extra" : "90'");
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
-/* Bonus por el minuto del primer gol: +3 exacto, +2 si el error es ≤5 min, +1 si es ≤10 min */
+/* Bonus por el minuto del primer gol: +3 exacto, +2 si el error es ≤5 min, +1 si es ≤10 min.
+   Si el partido termina sin goles (0-0), no hay primer gol y el bonus no aplica. */
 function minuteBonus(bet, m) {
   if (!m.result || m.result.firstGoalMinute == null || !bet || bet.minuto == null) return 0;
+  if (m.result.homeGoals === 0 && m.result.awayGoals === 0) return 0;
   const err = Math.abs(bet.minuto - m.result.firstGoalMinute);
   if (err === 0) return 3;
   if (err <= 5) return 2;
@@ -108,8 +110,17 @@ function scoreBet(bet, m) {
   const actualAdv = ro !== 0 ? (ah > aa ? "home" : "away") : m.result.advancer;
   const predAdv = po !== 0 ? (ph > pa ? "home" : "away") : bet.advancer;
   const advOk = predAdv && actualAdv && predAdv === actualAdv;
-  const predictedExtra = po === 0;
+  const predictedPen = bet.metodo === "pen";
 
+  /* Caso especial: 0-0 definido en penales → solo puntúa quien apostó a penales */
+  if (ah === 0 && aa === 0 && m.result.metodo === "pen") {
+    if (!predictedPen) return { points: 0, label: "Sin acierto (0-0 a penales)" };
+    if (exact && advOk) return { points: 10, label: "0-0 y penales exacto" };
+    if (advOk) return { points: 4, label: "Penales + quién avanza" };
+    return { points: 2, label: "Acertó penales" };
+  }
+
+  const predictedExtra = po === 0;
   if (exact && (!wentExtra || advOk)) return { points: 10, label: "Marcador exacto" };
   if (advOk && ph - pa === ah - aa) return { points: 8, label: "Avanza + diferencia" };
   if (advOk && (ph === ah || pa === aa)) return { points: 6, label: "Avanza + goles de un equipo" };
@@ -132,7 +143,8 @@ function buildStandings(matches, bets) {
         if (s.points === 8) eights++;
         if (bet) goalErr += Math.abs(bet.h - m.result.homeGoals) + Math.abs(bet.a - m.result.awayGoals);
         if (bet && bet.metodo && bet.metodo === m.result.metodo) metodoHits++;
-        if (m.result.firstGoalMinute != null) {
+        const scoreless = m.result.homeGoals === 0 && m.result.awayGoals === 0;
+        if (m.result.firstGoalMinute != null && !scoreless) {
           if (bet && bet.minuto != null) minErr += Math.abs(bet.minuto - m.result.firstGoalMinute);
           else minErr += MISS_MIN;
         }
@@ -381,10 +393,12 @@ function MatchCard({ m, me, bet, now, onSubmit, highlight }) {
 
   const canSave = h !== "" && a !== "" && (!isKO || !tie || advancer);
 
+  const scorelessPick = h !== "" && a !== "" && Number(h) === 0 && Number(a) === 0;
+
   const save = () => {
     const b = { h: Number(h), a: Number(a), metodo: tie && isKO ? metodo : "90" };
     if (isKO && tie) b.advancer = advancer;
-    if (minuto !== "") b.minuto = Number(minuto);
+    if (minuto !== "" && !scorelessPick) b.minuto = Number(minuto);
     onSubmit(m.id, b);
     setOpen(false);
   };
@@ -451,11 +465,14 @@ function MatchCard({ m, me, bet, now, onSubmit, highlight }) {
                   </label>
                 </div>
               )}
-              <div className="row">
-                <label>Minuto del 1er gol (opcional)
-                  <input type="number" min="0" max="120" value={minuto} onChange={(e) => setMinuto(e.target.value)} placeholder="ej. 23" />
-                </label>
-              </div>
+              {!scorelessPick && (
+                <div className="row">
+                  <label>Minuto del 1er gol (opcional)
+                    <input type="number" min="0" max="120" value={minuto} onChange={(e) => setMinuto(e.target.value)} placeholder="ej. 23" />
+                  </label>
+                </div>
+              )}
+              {scorelessPick && <p className="muted small">Pronosticaste 0-0: no aplica el minuto del primer gol.</p>}
               <div className="row">
                 <button className="btn primary" disabled={!canSave} onClick={save}>Guardar</button>
                 <button className="btn ghost" onClick={() => setOpen(false)}>Cancelar</button>
@@ -645,6 +662,7 @@ function Criterio() {
           <tr><td><strong>+3 pts</strong></td><td>Acertar el minuto exacto del primer gol</td></tr>
           <tr><td><strong>+2 pts</strong></td><td>Error de 5 minutos o menos</td></tr>
           <tr><td><strong>+1 pt</strong></td><td>Error de 10 minutos o menos</td></tr>
+          <tr><td><strong>—</strong></td><td>Si el partido termina 0-0, el bonus de minuto no aplica</td></tr>
         </tbody>
       </table>
       <h4>Desempates (en orden)</h4>
@@ -653,8 +671,10 @@ function Criterio() {
         <li>Más aciertos de método (90' / TE / penales)</li>
         <li>Más aciertos de 8 puntos</li>
         <li>Menor error acumulado de goles</li>
-        <li>Menor error en el minuto del primer gol (sin apuesta = {MISS_MIN} min de castigo)</li>
+        <li>Menor error en el minuto del primer gol (sin apuesta = {MISS_MIN} min de castigo; partidos 0-0 no cuentan)</li>
       </ol>
+      <h4>Caso especial: 0-0 con penales</h4>
+      <p className="small">Si un partido de eliminatoria termina <strong>0-0 y se define en penales</strong>, solo puntúan quienes hayan apostado a penales: <strong>10 pts</strong> con 0-0 exacto y quién avanza correcto, <strong>4 pts</strong> penales + quién avanza (sin marcador exacto), <strong>2 pts</strong> solo por acertar penales. El resto obtiene <strong>0 pts</strong>.</p>
       <p className="muted small">Las apuestas se cierran automáticamente al inicio de cada partido.</p>
     </div>
   );
@@ -730,10 +750,12 @@ function ResultForm({ m, onSave, onClear }) {
   const tie = h !== "" && a !== "" && Number(h) === Number(a);
   const isKO = m.stage !== "group";
 
+  const scorelessRes = h !== "" && a !== "" && Number(h) === 0 && Number(a) === 0;
+
   const save = () => {
     const r = { homeGoals: Number(h), awayGoals: Number(a), metodo };
     if (isKO && tie) r.advancer = advancer;
-    if (minuto !== "") r.firstGoalMinute = Number(minuto);
+    if (minuto !== "" && !scorelessRes) r.firstGoalMinute = Number(minuto);
     onSave(r);
   };
 
@@ -757,7 +779,7 @@ function ResultForm({ m, onSave, onClear }) {
             <option value="away">{m.away.name}</option>
           </select>
         )}
-        <input type="number" min="0" max="120" placeholder="Min 1er gol" value={minuto} onChange={(e) => setMinuto(e.target.value)} />
+        {!scorelessRes && <input type="number" min="0" max="120" placeholder="Min 1er gol" value={minuto} onChange={(e) => setMinuto(e.target.value)} />}
         <button className="btn small-btn primary" disabled={h === "" || a === "" || (isKO && tie && !advancer)} onClick={save}>Guardar</button>
         {m.result && <button className="btn small-btn ghost" onClick={onClear}>Borrar</button>}
       </div>
