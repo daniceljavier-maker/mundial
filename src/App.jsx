@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 const PARTICIPANTS = [
   "Lore", "Iñakitxu", "Derek", "Iñaki", "Idoia",
   "Dan", "Teresa", "Iñigo / Carla", "Manuel", "Dominique",
+  "Martina",
 ];
 
 const SEED_MATCHES = [
