@@ -42,7 +42,7 @@ const teamCode = (team) => team.code || COUNTRY_CODES[(team.name || "").toLowerC
 const MISS_MIN = 120;
 
 // Reemplaza esto con tu Web App URL de Google Apps Script
-const SCRIPT_URL = "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwoOjNJDeZoUAGg49PgCVUbfVprsDJr-tZygWfPyOD4jTiR7P8_aIzNMPFnNvOfW5vP/exec";
 
 /* ---------- Almacenamiento en Drive ---------- */
 async function loadDriveData() {
@@ -62,7 +62,7 @@ async function saveToDrive(action, payload) {
     await fetch(SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action, data: payload })
     });
   } catch (e) {
