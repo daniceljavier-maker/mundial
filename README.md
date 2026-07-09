@@ -5,12 +5,18 @@ Aplicación web para gestionar una porra (quiniela) entre amigos durante el Mund
 ## Características
 
 - **Pronósticos por partido**: cada participante elige su marcador, quién avanza, método (90', tiempo extra, penales) y minuto del primer gol.
+- **Banderas reales** de cada país (imágenes de [flagcdn.com](https://flagcdn.com), con más de 50 selecciones mapeadas por nombre en español y fallback a emoji).
+- **Pestaña "Apuestas"**: resumen de los pronósticos de todos los participantes por partido. Antes del inicio del partido solo se muestra quién ya apostó (🔒 los pronósticos ajenos permanecen ocultos); al arrancar el partido se revela la tabla completa con marcador, quién avanza, minuto del primer gol y puntos obtenidos.
 - **Sistema de puntuación**:
   - 10 pts — Marcador exacto
   - 8 pts — Ganador/avanza + diferencia de goles
   - 6 pts — Ganador/avanza + goles de un equipo
   - 4 pts — Solo el ganador / quién avanza
   - 2 pts — Acertar tiempo extra o penales (eliminatorias)
+- **Bonus por el minuto del primer gol**:
+  - +3 pts — Minuto exacto
+  - +2 pts — Error de 5 minutos o menos
+  - +1 pt — Error de 10 minutos o menos
 - **Ranking en vivo** con criterios de desempate (exactos, método, diferencia de goles, error de minuto).
 - **Panel de administración** protegido con PIN para capturar resultados y gestionar partidos.
 - **Sincronización automática** cada 15 segundos con Google Drive.

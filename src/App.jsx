@@ -12,14 +12,32 @@ const PARTICIPANTS = [
 
 const SEED_MATCHES = [
   { id: "qf1", round: "Cuartos de final", stage: "knockout", kickoff: "2026-07-09T20:00:00Z",
-    home: { name: "Francia", flag: "🇫🇷" }, away: { name: "Marruecos", flag: "🇲🇦" }, result: null },
+    home: { name: "Francia", flag: "🇫🇷", code: "fr" }, away: { name: "Marruecos", flag: "🇲🇦", code: "ma" }, result: null },
   { id: "qf2", round: "Cuartos de final", stage: "knockout", kickoff: "2026-07-10T19:00:00Z",
-    home: { name: "España", flag: "🇪🇸" }, away: { name: "Bélgica", flag: "🇧🇪" }, result: null },
+    home: { name: "España", flag: "🇪🇸", code: "es" }, away: { name: "Bélgica", flag: "🇧🇪", code: "be" }, result: null },
   { id: "qf3", round: "Cuartos de final", stage: "knockout", kickoff: "2026-07-11T21:00:00Z",
-    home: { name: "Noruega", flag: "🇳🇴" }, away: { name: "Inglaterra", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" }, result: null },
+    home: { name: "Noruega", flag: "🇳🇴", code: "no" }, away: { name: "Inglaterra", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", code: "gb-eng" }, result: null },
   { id: "qf4", round: "Cuartos de final", stage: "knockout", kickoff: "2026-07-12T01:00:00Z",
-    home: { name: "Argentina", flag: "🇦🇷" }, away: { name: "Suiza", flag: "🇨🇭" }, result: null },
+    home: { name: "Argentina", flag: "🇦🇷", code: "ar" }, away: { name: "Suiza", flag: "🇨🇭", code: "ch" }, result: null },
 ];
+
+/* Códigos ISO para banderas (flagcdn.com) de selecciones habituales */
+const COUNTRY_CODES = {
+  "francia": "fr", "marruecos": "ma", "españa": "es", "bélgica": "be", "belgica": "be",
+  "noruega": "no", "inglaterra": "gb-eng", "argentina": "ar", "suiza": "ch",
+  "méxico": "mx", "mexico": "mx", "estados unidos": "us", "usa": "us", "canadá": "ca", "canada": "ca",
+  "brasil": "br", "portugal": "pt", "alemania": "de", "italia": "it", "países bajos": "nl", "holanda": "nl",
+  "croacia": "hr", "uruguay": "uy", "colombia": "co", "chile": "cl", "perú": "pe", "peru": "pe",
+  "ecuador": "ec", "japón": "jp", "japon": "jp", "corea del sur": "kr", "senegal": "sn",
+  "ghana": "gh", "nigeria": "ng", "camerún": "cm", "camerun": "cm", "australia": "au",
+  "dinamarca": "dk", "suecia": "se", "polonia": "pl", "austria": "at", "escocia": "gb-sct",
+  "gales": "gb-wls", "serbia": "rs", "turquía": "tr", "turquia": "tr", "ucrania": "ua",
+  "costa rica": "cr", "panamá": "pa", "panama": "pa", "paraguay": "py", "venezuela": "ve",
+  "arabia saudita": "sa", "qatar": "qa", "catar": "qa", "irán": "ir", "iran": "ir",
+  "egipto": "eg", "túnez": "tn", "tunez": "tn", "argelia": "dz", "costa de marfil": "ci",
+};
+
+const teamCode = (team) => team.code || COUNTRY_CODES[(team.name || "").toLowerCase().trim()] || null;
 
 const MISS_MIN = 120;
 
@@ -61,6 +79,16 @@ const metLabel = (m) => (m === "pen" ? "pen." : m === "et" ? "TE" : "");
 const metLong = (m) => (m === "pen" ? "penales" : m === "et" ? "tiempo extra" : "90'");
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
+/* Bonus por el minuto del primer gol: +3 exacto, +2 si el error es ≤5 min, +1 si es ≤10 min */
+function minuteBonus(bet, m) {
+  if (!m.result || m.result.firstGoalMinute == null || !bet || bet.minuto == null) return 0;
+  const err = Math.abs(bet.minuto - m.result.firstGoalMinute);
+  if (err === 0) return 3;
+  if (err <= 5) return 2;
+  if (err <= 10) return 1;
+  return 0;
+}
+
 function scoreBet(bet, m) {
   if (!m.result) return { points: 0, label: "—", pending: true };
   if (!bet) return { points: 0, label: "Sin pronóstico" };
@@ -98,7 +126,8 @@ function buildStandings(matches, bets) {
       const bet = bets?.[m.id]?.[pid] || null;
       if (m.result) {
         const s = scoreBet(bet, m);
-        pts += s.points;
+        const bonus = minuteBonus(bet, m);
+        pts += s.points + bonus;
         if (s.points === 10) exact++;
         if (s.points === 8) eights++;
         if (bet) goalErr += Math.abs(bet.h - m.result.homeGoals) + Math.abs(bet.a - m.result.awayGoals);
@@ -107,7 +136,7 @@ function buildStandings(matches, bets) {
           if (bet && bet.minuto != null) minErr += Math.abs(bet.minuto - m.result.firstGoalMinute);
           else minErr += MISS_MIN;
         }
-        detail[m.id] = s;
+        detail[m.id] = bonus > 0 ? { ...s, points: s.points + bonus, label: `${s.label} +${bonus} min gol` } : s;
       } else {
         detail[m.id] = bet ? { points: null, label: "Apostado", pending: true } : { points: null, label: "—", pending: true };
       }
@@ -233,6 +262,7 @@ export default function App() {
           <Tabs tab={tab} setTab={setTab} myPts={myRow?.pts ?? 0} />
           <div className="content">
             {tab === "apostar" && <Apostar me={me} matches={matches} bets={bets} now={now} onSubmit={submitBet} nextId={nextMatch?.id} />}
+            {tab === "apuestas" && <Apuestas matches={matches} bets={bets} me={me} now={now} nextId={nextMatch?.id} />}
             {tab === "ranking" && <Ranking standings={standings} matches={matches} me={me} />}
             {tab === "criterio" && <Criterio />}
           </div>
@@ -289,6 +319,7 @@ function Header({ me, onChangeMe, onAdmin }) {
 function Tabs({ tab, setTab, myPts }) {
   const tabs = [
     { id: "apostar", label: "Apostar", icon: "🎯" },
+    { id: "apuestas", label: "Apuestas", icon: "👥" },
     { id: "ranking", label: "Ranking", icon: "🏆" },
     { id: "criterio", label: "Criterio", icon: "📖" },
   ];
@@ -438,12 +469,108 @@ function MatchCard({ m, me, bet, now, onSubmit, highlight }) {
   );
 }
 
+function FlagImg({ team, size = "lg" }) {
+  const code = teamCode(team);
+  if (code) {
+    return (
+      <img
+        className={`flag-img ${size}`}
+        src={`https://flagcdn.com/${size === "lg" ? "w80" : "w40"}/${code}.png`}
+        srcSet={`https://flagcdn.com/${size === "lg" ? "w160" : "w80"}/${code}.png 2x`}
+        alt={`Bandera de ${team.name}`}
+        loading="lazy"
+      />
+    );
+  }
+  return <span className={size === "lg" ? "flag" : "flag-sm"}>{team.flag || "🏳️"}</span>;
+}
+
 function TeamCol({ team, goals }) {
   return (
     <div className="team">
-      <span className="flag">{team.flag}</span>
+      <FlagImg team={team} size="lg" />
       <span className="tname">{team.name}</span>
       {goals != null && <span className="tgoals">{goals}</span>}
+    </div>
+  );
+}
+
+function Apuestas({ matches, bets, me, now, nextId }) {
+  const sorted = [...matches].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  return (
+    <div className="stack">
+      <p className="muted small">Resumen de los pronósticos de todos los participantes por partido. Los pronósticos de partidos abiertos permanecen ocultos 🔒 hasta que arranque el partido.</p>
+      {sorted.length === 0 && <div className="card center muted">No hay partidos todavía.</div>}
+      {sorted.map((m) => {
+        const started = new Date(m.kickoff).getTime() <= now;
+        const revealed = started || !!m.result;
+        const matchBets = bets?.[m.id] || {};
+        const betCount = PARTICIPANTS.filter((p) => matchBets[p]).length;
+        return (
+          <div key={m.id} className={`card ${m.id === nextId ? "highlight match" : ""}`}>
+            <div className="match-top">
+              <span className="round">{m.round}</span>
+              <span className="muted small">{fmtKick(m.kickoff)}</span>
+            </div>
+            <div className="apuestas-head">
+              <div className="apuestas-team">
+                <FlagImg team={m.home} size="sm" />
+                <strong>{m.home.name}</strong>
+              </div>
+              <span className="vs-small">
+                {m.result ? `${m.result.homeGoals} - ${m.result.awayGoals}${m.result.metodo && m.result.metodo !== "90" ? ` (${metLabel(m.result.metodo)})` : ""}` : "vs"}
+              </span>
+              <div className="apuestas-team right">
+                <strong>{m.away.name}</strong>
+                <FlagImg team={m.away} size="sm" />
+              </div>
+            </div>
+            {!revealed ? (
+              <div className="apuestas-hidden">
+                <span className="muted small">🔒 {betCount} de {PARTICIPANTS.length} han apostado · se revelan al inicio del partido</span>
+                <div className="apuestas-status">
+                  {PARTICIPANTS.map((p) => (
+                    <span key={p} className={`mini ${matchBets[p] ? "ok" : ""} ${p === me ? "me" : ""}`}>
+                      {matchBets[p] ? "✅" : "⏳"} {p}
+                    </span>
+                  ))}
+                </div>
+                {matchBets[me] && (
+                  <p className="small" style={{ marginTop: 8 }}>
+                    Tu pronóstico: <strong>{matchBets[me].h} - {matchBets[me].a}</strong>
+                    {matchBets[me].advancer && <span> · avanza {matchBets[me].advancer === "home" ? m.home.name : m.away.name}</span>}
+                    {matchBets[me].minuto != null && <span> · 1er gol min {matchBets[me].minuto}</span>}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Participante</th><th>Marcador</th><th>Avanza</th><th>Min 1er gol</th>{m.result && <th>Pts</th>}</tr>
+                  </thead>
+                  <tbody>
+                    {PARTICIPANTS.map((p) => {
+                      const b = matchBets[p];
+                      const s = m.result && b ? scoreBet(b, m) : null;
+                      const bonus = m.result && b ? minuteBonus(b, m) : 0;
+                      return (
+                        <tr key={p} className={p === me ? "me" : ""}>
+                          <td>{p}{p === me ? " (tú)" : ""}</td>
+                          <td>{b ? <strong>{b.h} - {b.a}</strong> : <span className="muted">—</span>}</td>
+                          <td>{b?.advancer ? (b.advancer === "home" ? m.home.name : m.away.name) + (b.metodo && b.metodo !== "90" ? ` (${metLabel(b.metodo)})` : "") : <span className="muted">—</span>}</td>
+                          <td>{b?.minuto != null ? `${b.minuto}'` : <span className="muted">—</span>}</td>
+                          {m.result && <td>{b ? <strong>{(s?.points ?? 0) + bonus}</strong> : 0}</td>}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -510,6 +637,14 @@ function Criterio() {
           <tr><td><strong>6 pts</strong></td><td>Ganador/avanza + goles de un equipo</td></tr>
           <tr><td><strong>4 pts</strong></td><td>Solo el ganador / quién avanza</td></tr>
           <tr><td><strong>2 pts</strong></td><td>Acertar que hubo tiempo extra / penales</td></tr>
+        </tbody>
+      </table>
+      <h4>Bonus: minuto del primer gol</h4>
+      <table>
+        <tbody>
+          <tr><td><strong>+3 pts</strong></td><td>Acertar el minuto exacto del primer gol</td></tr>
+          <tr><td><strong>+2 pts</strong></td><td>Error de 5 minutos o menos</td></tr>
+          <tr><td><strong>+1 pt</strong></td><td>Error de 10 minutos o menos</td></tr>
         </tbody>
       </table>
       <h4>Desempates (en orden)</h4>
@@ -709,6 +844,17 @@ function Styles() {
       .match-teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 10px; }
       .team { display: flex; flex-direction: column; align-items: center; gap: 3px; }
       .flag { font-size: 34px; } .tname { font-weight: 600; font-size: 14px; text-align: center; }
+      .flag-img { border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.45); object-fit: cover; }
+      .flag-img.lg { width: 54px; height: 38px; }
+      .flag-img.sm { width: 26px; height: 18px; }
+      .flag-sm { font-size: 18px; }
+      .apuestas-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+      .apuestas-team { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+      .apuestas-team.right { flex-direction: row; }
+      .vs-small { color: #8b97ad; font-size: 13px; font-weight: 700; white-space: nowrap; }
+      .apuestas-hidden { background: #0e1730; border: 1px dashed #2c3d61; border-radius: 9px; padding: 10px; }
+      .apuestas-status { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .mini.ok { border: 1px solid #2ecc71; }
       .tgoals { font-size: 22px; font-weight: 800; color: #2ecc71; }
       .vs { text-align: center; } .final strong { font-size: 22px; }
 
