@@ -139,7 +139,8 @@ function buildStandings(matches, bets) {
       if (m.result) {
         const s = scoreBet(bet, m);
         const bonus = minuteBonus(bet, m);
-        pts += s.points + bonus;
+        const mult = m.isDouble ? 2 : 1;
+        pts += (s.points + bonus) * mult;
         if (s.points === 10) exact++;
         if (s.points === 8) eights++;
         if (bet) goalErr += Math.abs(bet.h - m.result.homeGoals) + Math.abs(bet.a - m.result.awayGoals);
@@ -149,7 +150,9 @@ function buildStandings(matches, bets) {
           if (bet && bet.minuto != null) minErr += Math.abs(bet.minuto - m.result.firstGoalMinute);
           else minErr += MISS_MIN;
         }
-        detail[m.id] = bonus > 0 ? { ...s, points: s.points + bonus, label: `${s.label} +${bonus} min gol` } : s;
+        const totalPts = (s.points + bonus) * mult;
+        const dblTag = m.isDouble ? ' (x2)' : '';
+        detail[m.id] = bonus > 0 ? { ...s, points: totalPts, label: `${s.label} +${bonus} min gol${dblTag}` } : { ...s, points: totalPts, label: s.label + dblTag };
       } else {
         detail[m.id] = bet ? { points: null, label: "Apostado", pending: true } : { points: null, label: "—", pending: true };
       }
@@ -407,7 +410,7 @@ function MatchCard({ m, me, bet, now, onSubmit, highlight }) {
   return (
     <div className={`card match ${highlight ? "highlight" : ""}`}>
       <div className="match-top">
-        <span className="round">{m.round}</span>
+        <span className="round">{m.round}{m.isDouble ? ' ⭐ x2' : ''}</span>
         <span className="muted small">{fmtKick(m.kickoff)}{left ? ` · ⏳ ${left}` : ""}</span>
       </div>
       <div className="match-teams">
@@ -527,7 +530,7 @@ function Apuestas({ matches, bets, me, now, nextId }) {
         return (
           <div key={m.id} className={`card ${m.id === nextId ? "highlight match" : ""}`}>
             <div className="match-top">
-              <span className="round">{m.round}</span>
+              <span className="round">{m.round}{m.isDouble ? ' ⭐ x2' : ''}</span>
               <span className="muted small">{fmtKick(m.kickoff)}</span>
             </div>
             <div className="apuestas-head">
@@ -674,6 +677,8 @@ function Criterio() {
         <li>Menor error acumulado de goles</li>
         <li>Menor error en el minuto del primer gol (sin apuesta = {MISS_MIN} min de castigo; partidos 0-0 no cuentan)</li>
       </ol>
+      <h4>⭐ Final: puntos dobles</h4>
+      <p className="small">En la <strong>Final</strong> todos los puntos (base + bonus de minuto) se multiplican <strong>x2</strong>. Un marcador exacto en la final vale <strong>20 pts</strong>.</p>
       <h4>Caso especial: 0-0 con penales</h4>
       <p className="small">Si un partido de eliminatoria termina <strong>0-0 y se define en penales</strong>, solo puntúan quienes hayan apostado a penales: <strong>10 pts</strong> con 0-0 exacto y quién avanza correcto, <strong>4 pts</strong> penales + quién avanza (sin marcador exacto), <strong>2 pts</strong> solo por acertar penales. El resto obtiene <strong>0 pts</strong>.</p>
       <p className="muted small">Las apuestas se cierran automáticamente al inicio de cada partido.</p>
